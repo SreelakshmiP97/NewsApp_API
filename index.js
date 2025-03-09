@@ -8,18 +8,34 @@ const app = express();
 const PORT = process.env.PORT || 3010;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: '*', // Configure this according to your frontend URL in production
+    methods: ['GET']
+}));
 app.use(express.json());
 
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err.stack);
-    res.status(500).json({
+    res.status(err.status || 500).json({
         error: err.message,
         path: req.path,
         method: req.method
     });
 });
+
+// Timeout middleware
+const timeout = 25000; // 25 seconds (Vercel has 30s limit for hobby tier)
+const timeoutMiddleware = (req, res, next) => {
+    res.setTimeout(timeout, () => {
+        const err = new Error('Request Timeout');
+        err.status = 408;
+        next(err);
+    });
+    next();
+};
+
+app.use(timeoutMiddleware);
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
@@ -91,9 +107,14 @@ app.get('/api/news/all', async (req, res, next) => {
     }
 });
 
-// Start the server
-const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/api/health`);
-    console.log(`All news: http://localhost:${PORT}/api/news/all`);
-}); 
+// Only start the server if we're not in a Vercel environment
+if (process.env.VERCEL !== '1') {
+    const server = app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+        console.log(`Health check: http://localhost:${PORT}/api/health`);
+        console.log(`All news: http://localhost:${PORT}/api/news/all`);
+    });
+}
+
+// Export the Express API
+module.exports = app; 
