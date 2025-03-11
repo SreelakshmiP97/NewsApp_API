@@ -3,6 +3,7 @@ const cheerio = require('cheerio');
 const NewsArticle = require('../models/NewsArticle');
 const { generateId, retry, browserHeaders } = require('../utils/helpers');
 const { classifyTopic } = require('../utils/topicClassifier');
+const analyzeSentiment = require('../utils/sentimentAnalyzer');
 
 async function scrapeTheHinduSports() {
     try {
@@ -71,6 +72,9 @@ async function scrapeTheHinduSports() {
                         // Clean description HTML
                         const cleanDescription = $description.text().trim() || description;
                         
+                        // Calculate sentiment score from title and description
+                        const sentiment = analyzeSentiment(title + ' ' + cleanDescription);
+                        
                         articles.push(new NewsArticle({
                             id: generateId(),
                             title,
@@ -80,7 +84,8 @@ async function scrapeTheHinduSports() {
                             source: 'The Hindu',
                             topic,
                             publishedAt: new Date(pubDate).toISOString(),
-                            sentimentScore: 0.5,
+                            sentimentScore: sentiment.score,
+                            sentimentLabel: sentiment.label,
                             images: imageUrl ? [imageUrl] : [],
                             affectedEntities: []
                         }));
@@ -89,6 +94,7 @@ async function scrapeTheHinduSports() {
                             title: title.substring(0, 50) + '...',
                             url: link,
                             date: pubDate,
+                            sentiment: `${sentiment.label} (${sentiment.score.toFixed(2)})`,
                             hasImage: !!imageUrl
                         });
                     }

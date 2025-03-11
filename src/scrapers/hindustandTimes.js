@@ -3,6 +3,7 @@ const cheerio = require('cheerio');
 const NewsArticle = require('../models/NewsArticle');
 const { generateId, retry, browserHeaders } = require('../utils/helpers');
 const { classifyTopic } = require('../utils/topicClassifier');
+const analyzeSentiment = require('../utils/sentimentAnalyzer');
 
 async function scrapeHindustanTimes() {
     try {
@@ -88,6 +89,9 @@ async function scrapeHindustanTimes() {
                     // Classify topic
                     const topic = classifyTopic(title, url, summary);
 
+                    // Calculate sentiment score from title and summary
+                    const sentiment = analyzeSentiment(title + ' ' + summary);
+
                     const article = new NewsArticle({
                         id: generateId(),
                         title,
@@ -97,7 +101,8 @@ async function scrapeHindustanTimes() {
                         source: 'Hindustan Times',
                         topic,
                         publishedAt: new Date().toISOString(),
-                        sentimentScore: 0.5,
+                        sentimentScore: sentiment.score,
+                        sentimentLabel: sentiment.label,
                         images: imageUrl ? [imageUrl] : [],
                         affectedEntities: []
                     });
@@ -108,6 +113,7 @@ async function scrapeHindustanTimes() {
                         console.log('Found article:', {
                             title: title.substring(0, 50) + '...',
                             url,
+                            sentiment: `${sentiment.label} (${sentiment.score.toFixed(2)})`,
                             hasImage: !!imageUrl
                         });
                     }
@@ -127,4 +133,4 @@ async function scrapeHindustanTimes() {
     }
 }
 
-module.exports = scrapeHindustanTimes; 
+module.exports = scrapeHindustanTimes;
